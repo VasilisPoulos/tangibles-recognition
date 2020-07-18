@@ -1,7 +1,7 @@
 # Tangibles GSoC repo
 
 ## Prerequisites
-
+I am using python 3.7 .
 The following libraries need to be installed before running the 
 jupyter notebooks. 
 
