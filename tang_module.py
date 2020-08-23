@@ -4,6 +4,11 @@ import numpy as np
 import cv2 as cv
 import imutils
 
+EXPECTED_TEXT = ['Start', 'repeat indefinitely do',
+                 'if', 'equals', 'get distance US sensor',
+                 '30', 'drive', 'forwards speed %', '20',
+                 'b_tab', 'else', 'turn', 'right speed %']
+
 # First block id + 1
 BLOCK_ID = 0 
 
@@ -100,6 +105,13 @@ def get_indented_to(my_block):
 def similar(a, b):
     return SequenceMatcher(None, a, b).ratio()
 
+
+def similar_to_exp_text(text):
+    for line in EXPECTED_TEXT:
+        if similar(text, line) > 0.6:
+            print(line)
+            return line
+    return text
 
 def print_AST(root):
     # Print resulting AST

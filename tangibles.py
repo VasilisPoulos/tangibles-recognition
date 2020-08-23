@@ -60,8 +60,9 @@ th_saturation = cv.erode(th_saturation,kernel,iterations = EROSION_ITERATIONS)
 # Using connected components (CC) method to label each block
 num_labels, labels_im = cv.connectedComponents(th_saturation)
 
-# Kernel that will be used in closing morphological trasformation
-closing_kernel = cv.getStructuringElement(cv.MORPH_RECT, (3,3))
+# Kernels that will be used in erosion-dilation morphological transformations
+erosion_kernel = cv.getStructuringElement(cv.MORPH_RECT, (5,5))
+dilation_kernel = cv.getStructuringElement(cv.MORPH_RECT, (2,2))
 
 # Used for filtering components
 low_filter = .0002*np.prod(image.shape) 
@@ -104,10 +105,13 @@ for num in range(1, num_labels):
     # TODO: find a better way to crop all blocks 
     # (maybe use image_to_data() from Tesseract)
     crop_v = 18
+    crop_right = int(.08*w)
     if h > 150:
-        feature = feature[y+crop_v:y+h-crop_v-80, x+crop_v: x+w-crop_v-10]
+        crop_h = int(.5*h)
+        print(h, crop_h)
+        feature = feature[y+crop_v:y+h-crop_h, x+crop_v: x+w-crop_right]
     else:
-        feature = feature[y+crop_v:y+h-crop_v, x+crop_v: x+w-crop_v]
+        feature = feature[y+crop_v:y+h-crop_v, x+crop_v: x+w-crop_right]
     
     # Upscale feature image
     multiplier = 2
@@ -117,23 +121,31 @@ for num in range(1, num_labels):
     # Binarize and invert feature
     ret3, th_feature = cv.threshold(feature, 0, 255, \
         cv.THRESH_BINARY+cv.THRESH_OTSU)
-    closing = cv.morphologyEx(th_feature, cv.MORPH_CLOSE, closing_kernel)
-    inv_feature = np.invert(closing)
+    #closing = cv.morphologyEx(th_feature, cv.MORPH_CLOSE, closing_kernel)
+    erosion = cv.erode(th_feature, erosion_kernel, iterations = 1)
+    dilation = cv.dilate(erosion, dilation_kernel,iterations = 1)
+    inv_feature = np.invert(dilation)
     
     # Tesseract 
     config = '--psm 7'
     text_in_block = pytesseract.image_to_string(inv_feature, \
             lang='eng', config=config)
+   
+    # Remove spaces and newlines
+    text_in_block = ' '.join(text_in_block.split())
+
+    # Match text to expected text
+    text_in_block = tg.similar_to_exp_text(text_in_block)
 
     # Save block information
-    nb = tg.new_block( ' '.join(text_in_block.split()), x, y, w, h)
+    nb = tg.new_block( text_in_block, x, y, w, h)
     
     block_counter += 1
     # Print pre-process/ Tesseract results
     if args['debug'] and args['all']:
         plt.title('Block\'s id: {} at ({}, {})\n Tesseract read: {}'\
             .format(nb.b_id, nb.x, nb.y, ' '.join(text_in_block.split())))
-        plt.imshow(th_feature, cmap='gray')
+        plt.imshow(inv_feature, cmap='gray')
         plt.show()
 
 print('Found {} blocks in image'.format(block_counter))
