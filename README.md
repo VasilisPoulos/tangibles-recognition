@@ -9,7 +9,7 @@ Use the `tang_env.sh` script as:
 source tang_env.sh
 ```
 
-This will create a python environment in the same directory as the script 
+This will create a python environment in the same directory as the python script 
 with all the required libraries installed.
 
 Or, do the same process manually:
