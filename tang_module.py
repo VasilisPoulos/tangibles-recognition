@@ -3,6 +3,7 @@ from anytree import Node, RenderTree
 import numpy as np 
 import cv2 as cv
 import imutils
+import matplotlib.pyplot as plt 
 
 EXPECTED_TEXT = ['Start', 'repeat indefinitely do',
                  'if', 'equals', 'get distance US sensor',
@@ -108,8 +109,8 @@ def similar(a, b):
 
 def similar_to_exp_text(text):
     for line in EXPECTED_TEXT:
-        if similar(text, line) > 0.6:
-            print(line)
+        if similar(text, line) > 0.65:
+            print('{} mached with {}'.format(text, line))
             return line
     return text
 
@@ -178,7 +179,10 @@ def find_points(image):
     gray = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
     gray = cv.GaussianBlur(gray, (3, 3), 0)
     edged = cv.Canny(gray, 75, 200)
+    screen_contours = []
 
+    #plt.imshow(edged)
+    #plt.show()
     cnts = cv.findContours(edged.copy(), cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE)
     cnts = imutils.grab_contours(cnts)
     cnts = sorted(cnts, key = cv.contourArea, reverse = True)[:5]
@@ -186,7 +190,16 @@ def find_points(image):
         peri = cv.arcLength(c, True)
         approx = cv.approxPolyDP(c, 0.02 * peri, True)
         if len(approx) == 4:
-            screenCnt = approx
+            screen_contours = approx
             break
 
-    return screenCnt
+    return screen_contours
+
+def white_balance(img):
+    result = cv.cvtColor(img, cv.COLOR_BGR2LAB)
+    avg_a = np.average(result[:, :, 1])
+    avg_b = np.average(result[:, :, 2])
+    result[:, :, 1] = result[:, :, 1] - ((avg_a - 128) * (result[:, :, 0] / 255.0) * 1.1)
+    result[:, :, 2] = result[:, :, 2] - ((avg_b - 128) * (result[:, :, 0] / 255.0) * 1.1)
+    result = cv.cvtColor(result, cv.COLOR_LAB2BGR)
+    return result

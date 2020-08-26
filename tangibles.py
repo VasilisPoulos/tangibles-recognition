@@ -15,6 +15,12 @@ DILATION_ITERATIONS = 5
 EROSION_WINDOW_SIZE = 3
 EROSION_ITERATIONS = 3
 
+# Other constants
+START_HEIGHT = 0
+MASK_WS = 4
+mask_dilation = cv.getStructuringElement(cv.MORPH_RECT,\
+    (MASK_WS, MASK_WS))
+
 # construct the argument parser and parse the arguments
 ap = argparse.ArgumentParser()
 ap.add_argument('-i', '--image', required=True,
@@ -26,17 +32,24 @@ ap.add_argument('-a', '--all', action='store_true',
 args = vars(ap.parse_args())
 
 # Open image
-image = cv.imread(args['image'])
+image = cv.imread(args['image'])    
 ratio = image.shape[0] / 500.0
 orig = image.copy()
 image = imutils.resize(image, height = 500)
 
 # Perspective transformation
 screenCnt = tg.find_points(image)
+if len(screenCnt) == 0:
+    print('Perspective transformation failed')
+    exit(0)
+
 image = tg.four_point_transform(orig, screenCnt.reshape(4,2)*ratio)
 
+# Color balance 
+balanced_img = tg.white_balance(image)
+
 # Original image to HSV
-hsv_A = cv.cvtColor(image, cv.COLOR_RGB2HSV)
+hsv_A = cv.cvtColor(balanced_img, cv.COLOR_RGB2HSV)
 
 # Split each chanel
 h,s,v = cv.split(hsv_A)
@@ -69,11 +82,13 @@ low_filter = .0002*np.prod(image.shape)
 
 if args['debug']:
     fig = plt.figure(figsize=(20,10))
-    plt.subplot(1, 3, 1)
+    plt.subplot(1, 4, 1)
     plt.imshow(cv.cvtColor(orig, cv.COLOR_BGR2RGB))
-    plt.subplot(1, 3, 2)
+    plt.subplot(1, 4, 2)
     plt.imshow(cv.cvtColor(image, cv.COLOR_BGR2RGB))
-    plt.subplot(1, 3, 3)
+    plt.subplot(1, 4, 3)
+    plt.imshow(th_saturation, cmap='gray')
+    plt.subplot(1, 4, 4)
     plt.imshow(th_saturation)
     plt.show()
 
@@ -86,7 +101,6 @@ for num in range(1, num_labels):
     block_mask[label == False] = 0
     block_mask[label == True] = 255
 
-
     # Find coordinates (x, y) and hight - width of the block (h, w) based on 
     # the blocks mask
     _, contours, _ = cv.findContours(block_mask, cv.RETR_TREE, \
@@ -96,9 +110,15 @@ for num in range(1, num_labels):
     
     # Masking to extract image feature from image
     feature = cv.bitwise_and(gray_A, gray_A, mask=block_mask)  
-    
+   
     if cv.countNonZero(feature) < low_filter:
         continue
+    
+    block_mask = cv.dilate(block_mask, mask_dilation,iterations = 3)
+    
+    if args['debug'] and args['all']:
+        plt.imshow(block_mask)
+        plt.show()
 
     # Cropping each block to help with binarization later
     # Using a temporary cropping solution to crop control blocks 
@@ -106,7 +126,7 @@ for num in range(1, num_labels):
     # (maybe use image_to_data() from Tesseract)
     crop_v = 18
     crop_right = int(.08*w)
-    if h > 150:
+    if h > 150: # TODO: unreliable
         crop_h = int(.5*h)
         print(h, crop_h)
         feature = feature[y+crop_v:y+h-crop_h, x+crop_v: x+w-crop_right]
@@ -128,11 +148,11 @@ for num in range(1, num_labels):
     
     # Tesseract 
     config = '--psm 7'
-    text_in_block = pytesseract.image_to_string(inv_feature, \
+    tesseract_output = pytesseract.image_to_string(inv_feature, \
             lang='eng', config=config)
    
     # Remove spaces and newlines
-    text_in_block = ' '.join(text_in_block.split())
+    text_in_block = ' '.join(tesseract_output.split())
 
     # Match text to expected text
     text_in_block = tg.similar_to_exp_text(text_in_block)
@@ -144,7 +164,7 @@ for num in range(1, num_labels):
     # Print pre-process/ Tesseract results
     if args['debug'] and args['all']:
         plt.title('Block\'s id: {} at ({}, {})\n Tesseract read: {}'\
-            .format(nb.b_id, nb.x, nb.y, ' '.join(text_in_block.split())))
+            .format(nb.b_id, nb.x, nb.y, ' '.join(tesseract_output.split())))
         plt.imshow(inv_feature, cmap='gray')
         plt.show()
 
