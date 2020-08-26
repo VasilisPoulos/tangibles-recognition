@@ -17,22 +17,30 @@ BLOCK_ID = 0
 block_list = []
 
 class code_block:
-    def __init__(self, b_id, text, x, y, w, h):
+    def __init__(self, b_id, text, x, y, w, h, img):
         self.b_id = b_id
         self.text = text
         self.x = x
         self.y = y
         self.width = w
         self. height = h
+        self.coord_sum = (x*0.5)+(y*10)
+        self.feature = img
 
     def __str__(self):
-        return '{self.b_id}, "{self.text}" at ({self.x}, {self.y})'.format(self = self)
+        return '{self.b_id}, "{self.text}" at ({self.x}, {self.y}) {self.coord_sum}'.format(self = self)
 
+    def set_text(self, text):
+        self.text = text
 
-def new_block(text, x, y, w, h):
+    def get_coord_sum(self):
+        return self.coord_sum
+
+        
+def new_block(text, x, y, w, h, img):
     global BLOCK_ID 
     BLOCK_ID += 1
-    block_list.append(code_block(BLOCK_ID, text, x, y, w, h))
+    block_list.append(code_block(BLOCK_ID, text, x, y, w, h, img))
     return block_list[BLOCK_ID - 1]
 
 

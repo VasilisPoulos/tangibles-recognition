@@ -26,7 +26,11 @@ ap = argparse.ArgumentParser()
 ap.add_argument('-i', '--image', required=True,
                 help = "Path to tangible program image")
 ap.add_argument('-d', '--debug', action='store_true',
-                help = "Activate debug output")
+                help = "basic debug output")
+ap.add_argument('-m', '--masking', action='store_true',
+                help = "masking debug output")
+ap.add_argument('-c', '--crop', action='store_true',
+                help = "crop debug output")
 ap.add_argument('-a', '--all', action='store_true',
                 help = "Activate debug output")
 args = vars(ap.parse_args())
@@ -36,6 +40,7 @@ image = cv.imread(args['image'])
 ratio = image.shape[0] / 500.0
 orig = image.copy()
 image = imutils.resize(image, height = 500)
+print(image.shape)
 
 # Perspective transformation
 screenCnt = tg.find_points(image)
@@ -44,7 +49,7 @@ if len(screenCnt) == 0:
     exit(0)
 
 image = tg.four_point_transform(orig, screenCnt.reshape(4,2)*ratio)
-
+print(image.shape)
 # Color balance 
 balanced_img = tg.white_balance(image)
 
@@ -107,37 +112,57 @@ for num in range(1, num_labels):
             cv.CHAIN_APPROX_SIMPLE)
     x,y,w,h = cv.boundingRect(contours[0])
 
-    
+     # Filtering features
+    if cv.countNonZero(block_mask) < low_filter:
+        continue
+
+    block_mask = cv.dilate(block_mask, mask_dilation,iterations = 3)
+
     # Masking to extract image feature from image
     feature = cv.bitwise_and(gray_A, gray_A, mask=block_mask)  
-   
-    if cv.countNonZero(feature) < low_filter:
-        continue
-    
-    block_mask = cv.dilate(block_mask, mask_dilation,iterations = 3)
-    
-    if args['debug'] and args['all']:
-        plt.imshow(block_mask)
-        plt.show()
 
+    # Save block information
+    nb = tg.new_block('unprocessed', x, y, w, h, feature)
+
+    sorted_blocks = sorted(tg.block_list, key=lambda block: block.coord_sum)
+
+    #for block in sorted_blocks:
+    #    plt.title('{}:{}'.format(block.b_id, block.coord_sum))
+    #    plt.imshow(block.feature)
+    #    plt.show()
+
+counter = 0
+height_sum = 0
+for block in sorted_blocks:
+    height_sum += block.height
+    counter +=1 
+
+mean_height = height_sum/counter
+
+for block in sorted_blocks:
     # Cropping each block to help with binarization later
     # Using a temporary cropping solution to crop control blocks 
     # TODO: find a better way to crop all blocks 
     # (maybe use image_to_data() from Tesseract)
-    crop_v = 18
-    crop_right = int(.08*w)
-    if h > 150: # TODO: unreliable
-        crop_h = int(.5*h)
-        print(h, crop_h)
-        feature = feature[y+crop_v:y+h-crop_h, x+crop_v: x+w-crop_right]
-    else:
-        feature = feature[y+crop_v:y+h-crop_v, x+crop_v: x+w-crop_right]
     
+    crop_v = 18
+    crop_right = int(.08*block.width)
+    if block.height > mean_height: # TODO: unreliable
+        crop_h = int(.5*block.height)
+        print(h, crop_h)
+        feature = block.feature[block.y+crop_v: block.y+block.height-crop_h, 
+                                block.x+crop_v: block.x+block.width-crop_right]
+    else:
+        feature = block.feature[block.y+crop_v:block.y+block.height-crop_v, 
+                                block.x+crop_v: block.x+block.width-crop_right]
+    
+    if args['debug'] and args['masking']:
+        plt.imshow(feature)
+        plt.show()
     # Upscale feature image
     multiplier = 2
     feature = cv.resize(feature, dsize=(feature.shape[1]*multiplier, \
         feature.shape[0]*multiplier), interpolation=cv.INTER_CUBIC)
-
     # Binarize and invert feature
     ret3, th_feature = cv.threshold(feature, 0, 255, \
         cv.THRESH_BINARY+cv.THRESH_OTSU)
@@ -145,20 +170,18 @@ for num in range(1, num_labels):
     erosion = cv.erode(th_feature, erosion_kernel, iterations = 1)
     dilation = cv.dilate(erosion, dilation_kernel,iterations = 1)
     inv_feature = np.invert(dilation)
-    
+
     # Tesseract 
     config = '--psm 7'
     tesseract_output = pytesseract.image_to_string(inv_feature, \
             lang='eng', config=config)
-   
+
     # Remove spaces and newlines
     text_in_block = ' '.join(tesseract_output.split())
-
     # Match text to expected text
     text_in_block = tg.similar_to_exp_text(text_in_block)
-
-    # Save block information
-    nb = tg.new_block( text_in_block, x, y, w, h)
+    
+    block.set_text(text_in_block)
     
     block_counter += 1
     # Print pre-process/ Tesseract results
@@ -187,10 +210,10 @@ nesting_levels.append(nesting_level)
 index = 0              
 
 # Assuming all blocks in the list are sorted
-for i in range(1, len(tg.block_list)):
+for i in range(1, len(sorted_blocks)):
 
     ## "Special blocks" ##
-    if tg.similar(tg.block_list[i].text, 'b_tab') > 0.7: 
+    if tg.similar(sorted_blocks[i].text, 'b_tab') > 0.7: 
         # TODO: This can be done without relying on this blocks text
         # print('{} is {} similar to b_tab'.format(block_list[i].text,\
         #   similar(block_list[i].text, 'b_tab')))
@@ -198,9 +221,9 @@ for i in range(1, len(tg.block_list)):
             index -= 1
         continue
 
-    if tg.similar(tg.block_list[i].text, 'repeat indefinitely do') > 0.7: 
+    if tg.similar(sorted_blocks[i].text, 'repeat indefinitely do') > 0.7: 
         # TODO: or any other control block
-        new_node = Node(tg.block_list[i].text, parent=nesting_levels[index])
+        new_node = Node(sorted_blocks[i].text, parent=nesting_levels[index])
         previous_node = new_node
         nesting_level = new_node
         nesting_levels.append(nesting_level)
@@ -208,16 +231,16 @@ for i in range(1, len(tg.block_list)):
         continue
     ##  #  #  #  #  #  ##
 
-    res = tg.get_attached_to(tg.block_list[i-1])
-    if res != None and res.b_id == tg.block_list[i].b_id:
+    res = tg.get_attached_to(sorted_blocks[i-1])
+    if res != None and res.b_id == sorted_blocks[i].b_id:
         # the block is to the right of the previous block
         # attach node to previous Node
         new_node = Node(res.text, parent=previous_node)
         previous_node = new_node
         continue
 
-    res = tg.get_indented_to(tg.block_list[i-1])
-    if res != None and res.b_id == tg.block_list[i].b_id:
+    res = tg.get_indented_to(sorted_blocks[i-1])
+    if res != None and res.b_id == sorted_blocks[i].b_id:
         # print('{} is indented to {}'.format(res.text,block_list[i-1].text))
         # the block is indented to the previous block
         new_node = Node(res.text, parent=previous_node)
@@ -227,20 +250,20 @@ for i in range(1, len(tg.block_list)):
         previous_node = new_node
         continue
 
-    res = tg.get_underneath(tg.block_list[i-1])
-    if res != None and res.b_id == tg.block_list[i].b_id:
+    res = tg.get_underneath(sorted_blocks[i-1])
+    if res != None and res.b_id == sorted_blocks[i].b_id:
         # the block is underneath the previous block
 
-        #if tg.similar(tg.block_list[i-1].text, 'Start') > 0.7:
-        #    new_node = Node(tg.block_list[i].text, parent=previous_node)
+        #if tg.similar(sorted_blocks[i-1].text, 'Start') > 0.7:
+        #    new_node = Node(sorted_blocks[i].text, parent=previous_node)
         #else:
-        new_node = Node(tg.block_list[i].text, parent=nesting_levels[index])
+        new_node = Node(sorted_blocks[i].text, parent=nesting_levels[index])
         previous_node = new_node
         continue
 
     if res == None:
         # Nothing of the previous, add it to the current nest level
-        new_node = Node(tg.block_list[i].text, parent=nesting_levels[index])
+        new_node = Node(sorted_blocks[i].text, parent=nesting_levels[index])
         previous_node = new_node
         continue
    
