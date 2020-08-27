@@ -118,7 +118,7 @@ def similar(a, b):
 def similar_to_exp_text(text):
     for line in EXPECTED_TEXT:
         if similar(text, line) > 0.65:
-            print('{} mached with {}'.format(text, line))
+            # print('{} mached with {}'.format(text, line))
             return line
     return text
 
@@ -188,9 +188,8 @@ def find_points(image):
     gray = cv.GaussianBlur(gray, (3, 3), 0)
     edged = cv.Canny(gray, 75, 200)
     screen_contours = []
-
-    #plt.imshow(edged)
-    #plt.show()
+    # plt.imshow(edged)
+    # plt.show()
     cnts = cv.findContours(edged.copy(), cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE)
     cnts = imutils.grab_contours(cnts)
     cnts = sorted(cnts, key = cv.contourArea, reverse = True)[:5]
@@ -211,3 +210,5 @@ def white_balance(img):
     result[:, :, 2] = result[:, :, 2] - ((avg_b - 128) * (result[:, :, 0] / 255.0) * 1.1)
     result = cv.cvtColor(result, cv.COLOR_LAB2BGR)
     return result
+
+

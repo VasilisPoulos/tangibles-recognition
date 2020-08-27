@@ -27,10 +27,8 @@ ap.add_argument('-i', '--image', required=True,
                 help = "Path to tangible program image")
 ap.add_argument('-d', '--debug', action='store_true',
                 help = "basic debug output")
-ap.add_argument('-m', '--masking', action='store_true',
-                help = "masking debug output")
-ap.add_argument('-c', '--crop', action='store_true',
-                help = "crop debug output")
+ap.add_argument('-p', '--perspective', action='store_true',
+                help = 'perspective transformation debug output') 
 ap.add_argument('-a', '--all', action='store_true',
                 help = "Activate debug output")
 args = vars(ap.parse_args())
@@ -40,16 +38,44 @@ image = cv.imread(args['image'])
 ratio = image.shape[0] / 500.0
 orig = image.copy()
 image = imutils.resize(image, height = 500)
-print(image.shape)
+selection_counter = 0
+manual_selection = []
 
+def coordinates(event, x, y, flags, param):
+    global selection_counter, screenCnt
+    
+    if event == cv.EVENT_LBUTTONDOWN and selection_counter < 4:
+        cv.circle(image, (x,y), 20, (255,200,0), -1)
+        # print(x, y)
+        manual_selection.append([[x, y]])
+        selection_counter += 1
+       
+                
 # Perspective transformation
 screenCnt = tg.find_points(image)
 if len(screenCnt) == 0:
     print('Perspective transformation failed')
-    exit(0)
+    # if fails make user choose edges manually
+    cv.namedWindow('point_selection', cv.WINDOW_NORMAL)
+    cv.setMouseCallback('point_selection', coordinates)
+    print('Choose paper\'s edges manually\npress \'q\' to exit.')
+    while(True):
+        cv.imshow('point_selection', image)
+        key = cv.waitKey(1) & 0xFF
+        
+        if key == ord("q"):
+            cv.destroyAllWindows()
+            break
+    screenCnt = np.array(manual_selection)
+    if selection_counter < 4:
+        print('You have to select 4 edges')
+        exit(0)
 
 image = tg.four_point_transform(orig, screenCnt.reshape(4,2)*ratio)
-print(image.shape)
+
+if image.shape[0] < image.shape[1]:
+    image = np.rot90(image, -1)
+
 # Color balance 
 balanced_img = tg.white_balance(image)
 
@@ -97,7 +123,7 @@ if args['debug']:
     plt.imshow(th_saturation)
     plt.show()
 
-block_counter = 0
+print('Collecting block information')
 for num in range(1, num_labels):
 
     # Extracting mask from (CC) result
@@ -108,8 +134,7 @@ for num in range(1, num_labels):
 
     # Find coordinates (x, y) and hight - width of the block (h, w) based on 
     # the blocks mask
-    _, contours, _ = cv.findContours(block_mask, cv.RETR_TREE, \
-            cv.CHAIN_APPROX_SIMPLE)
+    contours, _ = cv.findContours(block_mask, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
     x,y,w,h = cv.boundingRect(contours[0])
 
      # Filtering features
@@ -138,7 +163,8 @@ for block in sorted_blocks:
     counter +=1 
 
 mean_height = height_sum/counter
-
+print('Found {} blocks in image'.format(counter))
+print('OCR')
 for block in sorted_blocks:
     # Cropping each block to help with binarization later
     # Using a temporary cropping solution to crop control blocks 
@@ -149,20 +175,25 @@ for block in sorted_blocks:
     crop_right = int(.08*block.width)
     if block.height > mean_height: # TODO: unreliable
         crop_h = int(.5*block.height)
-        print(h, crop_h)
         feature = block.feature[block.y+crop_v: block.y+block.height-crop_h, 
                                 block.x+crop_v: block.x+block.width-crop_right]
     else:
         feature = block.feature[block.y+crop_v:block.y+block.height-crop_v, 
                                 block.x+crop_v: block.x+block.width-crop_right]
     
-    if args['debug'] and args['masking']:
-        plt.imshow(feature)
-        plt.show()
     # Upscale feature image
     multiplier = 2
     feature = cv.resize(feature, dsize=(feature.shape[1]*multiplier, \
         feature.shape[0]*multiplier), interpolation=cv.INTER_CUBIC)
+
+    # blurring to make bin more accurate
+    feature = cv.GaussianBlur(feature,(5,5),0)
+
+
+    if args['debug']:
+        plt.imshow(feature, cmap='gray')
+        plt.show()
+
     # Binarize and invert feature
     ret3, th_feature = cv.threshold(feature, 0, 255, \
         cv.THRESH_BINARY+cv.THRESH_OTSU)
@@ -170,6 +201,7 @@ for block in sorted_blocks:
     erosion = cv.erode(th_feature, erosion_kernel, iterations = 1)
     dilation = cv.dilate(erosion, dilation_kernel,iterations = 1)
     inv_feature = np.invert(dilation)
+
 
     # Tesseract 
     config = '--psm 7'
@@ -183,15 +215,12 @@ for block in sorted_blocks:
     
     block.set_text(text_in_block)
     
-    block_counter += 1
     # Print pre-process/ Tesseract results
     if args['debug'] and args['all']:
         plt.title('Block\'s id: {} at ({}, {})\n Tesseract read: {}'\
             .format(nb.b_id, nb.x, nb.y, ' '.join(tesseract_output.split())))
         plt.imshow(inv_feature, cmap='gray')
         plt.show()
-
-print('Found {} blocks in image'.format(block_counter))
 
 ## Main logic for generating AST and result ##
 
@@ -266,5 +295,6 @@ for i in range(1, len(sorted_blocks)):
         new_node = Node(sorted_blocks[i].text, parent=nesting_levels[index])
         previous_node = new_node
         continue
-   
+
+print('Printing AST...')   
 tg.print_AST(root)
