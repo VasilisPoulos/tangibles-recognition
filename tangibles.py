@@ -33,11 +33,22 @@ ap.add_argument('-a', '--all', action='store_true',
                 help = "Activate debug output")
 args = vars(ap.parse_args())
 
-# Open image
-image = cv.imread(args['image'])    
+# Load image
+image = cv.imread(args['image'])
+
+#############################################
+# 1. Preparing the image for pre-processing.#
+##############################################
+
 ratio = image.shape[0] / 500.0
 orig = image.copy()
 image = imutils.resize(image, height = 500)
+
+
+# In case automatic Perspective transformation fails the user is prompted to 
+# select manually the paper's edges.
+# TODO: this is not reliable, the 'experiment' images that are processed 
+# and produce correct results use the automatic method.
 selection_counter = 0
 manual_selection = []
 
@@ -49,10 +60,12 @@ def coordinates(event, x, y, flags, param):
         # print(x, y)
         manual_selection.append([[x, y]])
         selection_counter += 1
-       
-                
-# Perspective transformation
+                     
+# Automatic point selection; assumes that the hole A4 paper is 
+# visible.
 screenCnt = tg.find_points(image)
+
+# Manual point selection.
 if len(screenCnt) == 0:
     print('Perspective transformation failed')
     # if fails make user choose edges manually
@@ -71,10 +84,12 @@ if len(screenCnt) == 0:
         print('You have to select 4 edges')
         exit(0)
 
+# Perspective transformation
 image = tg.four_point_transform(orig, screenCnt.reshape(4,2)*ratio)
 
-if image.shape[0] < image.shape[1]:
-    image = np.rot90(image, -1)
+################################################
+# 2. Pre-Processing and block masks generation.#
+################################################
 
 # Color balance 
 balanced_img = tg.white_balance(image)
@@ -97,20 +112,17 @@ kernel = cv.getStructuringElement(cv.MORPH_RECT,\
 th_saturation = cv.dilate(th_saturation, kernel \
                         ,iterations = DILATION_ITERATIONS)
 
-# Erosion 
+# Erosion to remove noise
 kernel = np.ones((EROSION_WINDOW_SIZE,EROSION_WINDOW_SIZE),np.uint8)
 th_saturation = cv.erode(th_saturation,kernel,iterations = EROSION_ITERATIONS)
 
 # Using connected components (CC) method to label each block
 num_labels, labels_im = cv.connectedComponents(th_saturation)
 
-# Kernels that will be used in erosion-dilation morphological transformations
-erosion_kernel = cv.getStructuringElement(cv.MORPH_RECT, (5,5))
-dilation_kernel = cv.getStructuringElement(cv.MORPH_RECT, (2,2))
-
 # Used for filtering components
 low_filter = .0002*np.prod(image.shape) 
 
+# Plotting general debug images
 if args['debug']:
     fig = plt.figure(figsize=(20,10))
     plt.subplot(1, 4, 1)
@@ -122,6 +134,7 @@ if args['debug']:
     plt.subplot(1, 4, 4)
     plt.imshow(th_saturation)
     plt.show()
+
 
 print('Collecting block information')
 for num in range(1, num_labels):
@@ -163,8 +176,17 @@ for block in sorted_blocks:
     counter +=1 
 
 mean_height = height_sum/counter
+
+#############################
+# 3. Preparing text for OCR #
+#############################
+
 print('Found {} blocks in image'.format(counter))
 print('OCR')
+# Kernels that will be used in erosion-dilation morphological transformations
+erosion_kernel = cv.getStructuringElement(cv.MORPH_RECT, (5,5))
+dilation_kernel = cv.getStructuringElement(cv.MORPH_RECT, (2,2))
+
 for block in sorted_blocks:
     # Cropping each block to help with binarization later
     # Using a temporary cropping solution to crop control blocks 
@@ -202,7 +224,10 @@ for block in sorted_blocks:
     dilation = cv.dilate(erosion, dilation_kernel,iterations = 1)
     inv_feature = np.invert(dilation)
 
-
+    ######################
+    # 4. Collecting data #
+    ######################
+    
     # Tesseract 
     config = '--psm 7'
     tesseract_output = pytesseract.image_to_string(inv_feature, \
@@ -222,12 +247,14 @@ for block in sorted_blocks:
         plt.imshow(inv_feature, cmap='gray')
         plt.show()
 
-## Main logic for generating AST and result ##
+#####################
+# 5. AST generation #
+#####################
 
 # Root of the AST
 root = Node('tangible program')
 next_block = None
- # current identation level
+# current indentation level
 nesting_level = root   
 # init first node
 start = Node(tg.get_block_list_item(0).text, parent=nesting_level) 
@@ -244,8 +271,7 @@ for i in range(1, len(sorted_blocks)):
     ## "Special blocks" ##
     if tg.similar(sorted_blocks[i].text, 'b_tab') > 0.7: 
         # TODO: This can be done without relying on this blocks text
-        # print('{} is {} similar to b_tab'.format(block_list[i].text,\
-        #   similar(block_list[i].text, 'b_tab')))
+
         if index != 0:
             index -= 1
         continue
