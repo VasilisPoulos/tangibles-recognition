@@ -257,7 +257,7 @@ next_block = None
 # current indentation level
 nesting_level = root   
 # init first node
-start = Node(tg.get_block_list_item(0).text, parent=nesting_level) 
+start = Node(tg.block_list[0].text, parent=nesting_level) 
 previous_node = start
   # save all nesting levels so i can go back
 nesting_levels = []   
@@ -276,7 +276,7 @@ for i in range(1, len(sorted_blocks)):
             index -= 1
         continue
 
-    if tg.similar(sorted_blocks[i].text, 'repeat indefinitely do') > 0.7: 
+    if tg.similar(sorted_blocks[i].text, 'repeat indefinitely do') > 0.7 : 
         # TODO: or any other control block
         new_node = Node(sorted_blocks[i].text, parent=nesting_levels[index])
         previous_node = new_node
@@ -298,6 +298,7 @@ for i in range(1, len(sorted_blocks)):
     if res != None and res.b_id == sorted_blocks[i].b_id:
         # print('{} is indented to {}'.format(res.text,block_list[i-1].text))
         # the block is indented to the previous block
+        print('{} is indented to {}'.format(sorted_blocks[i], sorted_blocks[i-1]))
         new_node = Node(res.text, parent=previous_node)
         nesting_level = new_node
         nesting_levels.append(nesting_level)
@@ -318,6 +319,7 @@ for i in range(1, len(sorted_blocks)):
 
     if res == None:
         # Nothing of the previous, add it to the current nest level
+        print('{} got to None FROM {}'.format(sorted_blocks[i], sorted_blocks[i-1]))
         new_node = Node(sorted_blocks[i].text, parent=nesting_levels[index])
         previous_node = new_node
         continue
