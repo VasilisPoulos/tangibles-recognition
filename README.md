@@ -2,6 +2,11 @@
 
 [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/VasilisPoulos/tangibles-recognition/master)
 
+I was selected by Open Roberta to work on a new feature as a participant in Google Summer of Code 2020. The intent of the project was to 
+design real life coding blocks and create a prototype code block recognition script that would enable their use in the Open 
+Roberta Lab.
+My approach for the recognition of the blocks is shown in the `complex_example.ipynb` notebook.
+The python script is in the early stages of its implementation but can succesfully process 2 example images. 
 For more info go to my [gist](https://gist.github.com/VasilisPoulos/5176e80d0f8f4948e0549a58497d3b54).
 
 ## How to run
