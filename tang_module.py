@@ -5,11 +5,24 @@ import cv2 as cv
 import imutils
 import matplotlib.pyplot as plt 
 
-EXPECTED_TEXT = ['Start', 'repeat indefinitely do',
-                 'if', 'equals', 'get distance US sensor',
-                 '30', 'drive', 'forwards speed %', '20',
-                 'b_tab', 'else', 'turn', 'right speed %']
+EXPECTED_TEXT = ['Start', 
+                 'Define',
+                 'Variable X',
+                 'Variable Y',
+                 'Variable Z',
+                 '50', '20', '30',
+                 'b_tab', 
+                 'drive', 'turn', 'forwards speed %',
+                 'backwards speed %',
+                 'right speed %',
+                 'left speed %', 
+                 'repeat indefinitely',
+                 'if', 'else',
+                 'equals', 
+                 'get distance US sensor',
+                 'right speed %']
 
+CONTROL_BLOCKS = ['repeat indefinitely', 'if', 'else']
 # First block id + 1
 BLOCK_ID = 0 
 
@@ -17,32 +30,31 @@ BLOCK_ID = 0
 block_list = []
 
 class code_block:
-    def __init__(self, b_id, text, x, y, w, h):
+    def __init__(self, b_id, text, x, y, w, h, img):
         self.b_id = b_id
         self.text = text
         self.x = x
         self.y = y
         self.width = w
         self. height = h
+        self.coord_sum = (x*0.5)+(y*10)
+        self.feature = img
 
     def __str__(self):
-        return '{self.b_id}, "{self.text}" at ({self.x}, {self.y})'.format(self = self)
+        return '{self.b_id}, "{self.text}" at ({self.x}, {self.y}) {self.coord_sum}'.format(self = self)
 
+    def set_text(self, text):
+        self.text = text
 
-def new_block(text, x, y, w, h):
+    def get_coord_sum(self):
+        return self.coord_sum
+
+        
+def new_block(text, x, y, w, h, img):
     global BLOCK_ID 
     BLOCK_ID += 1
-    block_list.append(code_block(BLOCK_ID, text, x, y, w, h))
+    block_list.append(code_block(BLOCK_ID, text, x, y, w, h, img))
     return block_list[BLOCK_ID - 1]
-
-
-def get_block_list():
-    return block_list
-
-
-def get_block_list_item(index):
-    return block_list[index]
-
 
 def get_underneath(my_block):
     thr = 30
@@ -110,9 +122,18 @@ def similar(a, b):
 def similar_to_exp_text(text):
     for line in EXPECTED_TEXT:
         if similar(text, line) > 0.65:
-            print('{} mached with {}'.format(text, line))
+            # print('{} mached with {}'.format(text, line))
             return line
     return text
+
+
+def is_control_block(text):
+    for block_text in CONTROL_BLOCKS:
+        if similar(text, block_text) > 0.65:
+            # print('{} mached with {}'.format(text, line))
+            return True
+    return False
+
 
 def print_AST(root):
     # Print resulting AST
@@ -180,9 +201,8 @@ def find_points(image):
     gray = cv.GaussianBlur(gray, (3, 3), 0)
     edged = cv.Canny(gray, 75, 200)
     screen_contours = []
-
-    #plt.imshow(edged)
-    #plt.show()
+    plt.imshow(edged)
+    plt.show()
     cnts = cv.findContours(edged.copy(), cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE)
     cnts = imutils.grab_contours(cnts)
     cnts = sorted(cnts, key = cv.contourArea, reverse = True)[:5]
@@ -203,3 +223,5 @@ def white_balance(img):
     result[:, :, 2] = result[:, :, 2] - ((avg_b - 128) * (result[:, :, 0] / 255.0) * 1.1)
     result = cv.cvtColor(result, cv.COLOR_LAB2BGR)
     return result
+
+
