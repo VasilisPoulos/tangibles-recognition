@@ -201,8 +201,8 @@ def find_points(image):
     gray = cv.GaussianBlur(gray, (3, 3), 0)
     edged = cv.Canny(gray, 75, 200)
     screen_contours = []
-    plt.imshow(edged)
-    plt.show()
+    #plt.imshow(edged)
+    #plt.show()
     cnts = cv.findContours(edged.copy(), cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE)
     cnts = imutils.grab_contours(cnts)
     cnts = sorted(cnts, key = cv.contourArea, reverse = True)[:5]
