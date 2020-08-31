@@ -24,13 +24,11 @@ mask_dilation = cv.getStructuringElement(cv.MORPH_RECT,\
 # construct the argument parser and parse the arguments
 ap = argparse.ArgumentParser()
 ap.add_argument('-i', '--image', required=True,
-                help = "Path to tangible program image")
+                help = "path to tangible program image")
 ap.add_argument('-d', '--debug', action='store_true',
                 help = "basic debug output")
-ap.add_argument('-p', '--perspective', action='store_true',
-                help = 'perspective transformation debug output') 
 ap.add_argument('-a', '--all', action='store_true',
-                help = "Activate debug output")
+                help = "all debug output")
 args = vars(ap.parse_args())
 
 # Load image
@@ -182,7 +180,6 @@ mean_height = height_sum/counter
 #############################
 
 print('Found {} blocks in image'.format(counter))
-print('OCR')
 # Kernels that will be used in erosion-dilation morphological transformations
 erosion_kernel = cv.getStructuringElement(cv.MORPH_RECT, (5,5))
 dilation_kernel = cv.getStructuringElement(cv.MORPH_RECT, (2,2))
@@ -237,7 +234,6 @@ for block in sorted_blocks:
     text_in_block = ' '.join(tesseract_output.split())
     # Match text to expected text
     text_in_block = tg.similar_to_exp_text(text_in_block)
-    
     block.set_text(text_in_block)
     
     # Print pre-process/ Tesseract results
@@ -250,79 +246,101 @@ for block in sorted_blocks:
 #####################
 # 5. AST generation #
 #####################
-
+tg.block_list = sorted_blocks.copy()
 # Root of the AST
 root = Node('tangible program')
-next_block = None
-# current indentation level
-nesting_level = root   
-# init first node
-start = Node(tg.block_list[0].text, parent=nesting_level) 
+
+# Pointers 
+reference_node = root     
+start = Node(tg.block_list[0].text, parent=reference_node) 
+next_node = None
 previous_node = start
-  # save all nesting levels so i can go back
+
 nesting_levels = []   
-nesting_levels.append(nesting_level)
- # index of nesting_level list
-index = 0              
+nesting_levels.append(reference_node)
+nesting_index = 0              
+lock = False
 
 # Assuming all blocks in the list are sorted
-for i in range(1, len(sorted_blocks)):
+# Checking the relation of the previous_node to the current node
+i = 1
+while i < len(sorted_blocks):
+    print('-> {}: {},'.format(i,sorted_blocks[i]))
+    if not lock:
+        previous_block = sorted_blocks[i-1]
+    else:
+        print('previous block {}'.format(previous_block))
 
-    ## "Special blocks" ##
-    if tg.similar(sorted_blocks[i].text, 'b_tab') > 0.7: 
-        # TODO: This can be done without relying on this blocks text
-
-        if index != 0:
-            index -= 1
+    current_block = sorted_blocks[i]
+    nesting_level = nesting_levels[nesting_index]
+    
+    if tg.similar(current_block.text, 'b_tab') > 0.7:
+        #print('gone back')
+        nesting_index -= 1
+        i += 1
         continue
-
-    if tg.similar(sorted_blocks[i].text, 'repeat indefinitely do') > 0.7 : 
-        # TODO: or any other control block
-        new_node = Node(sorted_blocks[i].text, parent=nesting_levels[index])
+    
+    # If the current node is attached the previous node
+    result_block = tg.get_attached_node_to(previous_block)
+    temp = previous_block
+    while result_block != None and i < len(sorted_blocks) and not lock:
+        print('current block {} previous {}'.format(current_block.text, previous_block.text))
+        # add new node to the tree
+        #print('{} is attached to {}'.format(current_block.text, previous_block.text))
+        new_node = Node(current_block.text, parent=previous_node)
+        #print(str(new_node)+'\n')
         previous_node = new_node
-        nesting_level = new_node
-        nesting_levels.append(nesting_level)
-        index += 1
-        continue
-    ##  #  #  #  #  #  ##
 
-    res = tg.get_attached_to(sorted_blocks[i-1])
-    if res != None and res.b_id == sorted_blocks[i].b_id:
-        # the block is to the right of the previous block
-        # attach node to previous Node
-        new_node = Node(res.text, parent=previous_node)
+        # go to next block
+        i += 1
+        if i == len(sorted_blocks):
+            break
+        
+        current_block = sorted_blocks[i]
+        previous_block = sorted_blocks[i-1]
+        # check if current block has another block attached
+        result_block = tg.get_attached_node_to(current_block)
+        if result_block == None:
+            print('last {}'.format(current_block))
+            new_node = Node(current_block.text, parent=previous_node)
+            previous_node = reference_node
+            previous_block = temp
+            print('SAVE {}'.format(previous_block))
+            lock = True
+
+            # go to next block
+            if i == len(sorted_blocks):
+                i += 1
+                current_block = sorted_blocks[i]
+            else:
+                break
+            continue
+        
+    lock = False
+    # If the current node is indented the previous node
+    result_block = tg.get_indented_node_to(previous_block)
+    if result_block != None:
+        print('{}, {} is indented to {}'.format(i, current_block.text, previous_block.text))
+        new_node = Node(current_block.text, parent=previous_node)
         previous_node = new_node
+        nesting_levels.append(new_node)
+        nesting_index += 1
+        reference_node = new_node
+        i += 1
         continue
 
-    res = tg.get_indented_to(sorted_blocks[i-1])
-    if res != None and res.b_id == sorted_blocks[i].b_id:
-        # print('{} is indented to {}'.format(res.text,block_list[i-1].text))
-        # the block is indented to the previous block
-        print('{} is indented to {}'.format(sorted_blocks[i], sorted_blocks[i-1]))
-        new_node = Node(res.text, parent=previous_node)
-        nesting_level = new_node
-        nesting_levels.append(nesting_level)
-        index += 1
+    # If the current node is underneath the previous node
+    result_block = tg.get_node_underneath(previous_block)
+    if result_block != None and result_block.b_id == current_block.b_id:
+        print('{} is underneath {}'.format(current_block.text, previous_block.text))
+        new_node = Node(current_block.text, parent=nesting_level)
         previous_node = new_node
-        continue
-
-    res = tg.get_underneath(sorted_blocks[i-1])
-    if res != None and res.b_id == sorted_blocks[i].b_id:
-        # the block is underneath the previous block
-
-        #if tg.similar(sorted_blocks[i-1].text, 'Start') > 0.7:
-        #    new_node = Node(sorted_blocks[i].text, parent=previous_node)
-        #else:
-        new_node = Node(sorted_blocks[i].text, parent=nesting_levels[index])
-        previous_node = new_node
-        continue
-
-    if res == None:
-        # Nothing of the previous, add it to the current nest level
-        print('{} got to None FROM {}'.format(sorted_blocks[i], sorted_blocks[i-1]))
-        new_node = Node(sorted_blocks[i].text, parent=nesting_levels[index])
-        previous_node = new_node
-        continue
+        reference_node = new_node
+        i += 1
+        continue 
+    
+    i += 1
+    
 
 print('Printing AST...')   
 tg.print_AST(root)

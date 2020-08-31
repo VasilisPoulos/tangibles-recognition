@@ -56,7 +56,13 @@ def new_block(text, x, y, w, h, img):
     block_list.append(code_block(BLOCK_ID, text, x, y, w, h, img))
     return block_list[BLOCK_ID - 1]
 
-def get_underneath(my_block):
+def find_block(text):
+    for block in block_list:
+        if block.text == text:
+            return block
+
+
+def get_node_underneath(my_block):
     thr = 30
     res_block =  None
     for block in block_list:
@@ -76,7 +82,7 @@ def get_underneath(my_block):
 
 # get_attached_to: returns the attached block to my_block if there is one
 # else None.
-def get_attached_to(my_block):
+def get_attached_node_to(my_block):
     thr = 30
     res_block = None
     for block in block_list:
@@ -88,14 +94,14 @@ def get_attached_to(my_block):
         # Searching for a block that: 
         # * is `not` higher or lower than my block in the y axis + threshold
         # * is `not` more to the right that my_block's width + threshold
-        if  my_block.y - thr < block.y < my_block.y + thr and             block.x < my_block.x + my_block.width + thr :
+        if  my_block.y - thr < block.y < my_block.y + thr and block.x < my_block.x + my_block.width + thr :
             res_block = block
     return res_block 
 
 
 # get_indented_to: returns the indented block to my_block if there is one
 # else None.
-def get_indented_to(my_block):
+def get_indented_node_to(my_block):
     res_block =  None
     thr = 10
     for block in block_list:
@@ -107,10 +113,9 @@ def get_indented_to(my_block):
         # Searching for a block that: 
         # * is within the range of my_block's width + threshold
         # * is below my_block
-        if  my_block.x < block.x < my_block.x + my_block.width and             block.y < my_block.y + my_block.height + thr:
+        if  my_block.x < block.x < my_block.x + my_block.width and  block.y < my_block.y + my_block.height + thr:
             res_block = block
-
-    return res_block
+            return res_block
 
 
 # similar(): 
