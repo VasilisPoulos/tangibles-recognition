@@ -39,8 +39,8 @@ sudo apt-get install tesseract-ocr
 To run the tangibles python script on the test images use:
 
 ```shell
-python tangibles.py -i test_images/program1.jpg 
 python tangibles.py -i test_images/program1.jpg
+python tangibles.py -i test_images/program1_1.jpg
 ```
 
 to see all the arguments of the script use:
