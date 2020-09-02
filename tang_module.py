@@ -104,7 +104,7 @@ def get_block_attached_to(my_block):
 # else None.
 def get_block_indented_to(my_block):
     res_block =  None
-    thr = 10
+    thr = 50 # TODO: change to a non constant value
     for block in block_list:
         # Skip the same block as my_block in the block_list or blocks that are 
         # higher than my_block.
@@ -115,6 +115,7 @@ def get_block_indented_to(my_block):
         # * is within the range of my_block's width + threshold
         # * is below my_block
         if  my_block.x < block.x < my_block.x + my_block.width and  block.y < my_block.y + my_block.height + thr:
+            
             res_block = block
             return res_block
 

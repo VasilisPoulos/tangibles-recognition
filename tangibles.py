@@ -233,9 +233,12 @@ for block in sorted_blocks:
     # Remove spaces and newlines
     text_in_block = ' '.join(tesseract_output.split())
     # Match text to expected text
-    text_in_block = tg.similar_to_exp_text(text_in_block)
-    block.set_text(text_in_block)
-    
+    if not (tg.similar(text_in_block, 'Variable') > 0.8):
+        text_in_block = tg.similar_to_exp_text(text_in_block)
+        block.set_text(text_in_block)
+    else:
+        block.set_text(text_in_block)
+
     # Print pre-process/ Tesseract results
     if args['debug'] and args['all']:
         plt.title('Block\'s id: {} at ({}, {})\n Tesseract read: {}'\
@@ -263,15 +266,18 @@ def get_next_block():
     LIST_INDEX += 1
     return ret
 
-
-#print()
+# block = tg.find_block('Define')
+# target = tg.find_block('Variable X')
+# print(target)
+# print(tg.get_block_indented_to(block))
+# print()
 block_has_attached = False
 current_block = get_next_block()
 nesting_block_list = [] # Code blocks that are before each 
                         # nested coding block set.
 nesting_node_list = []
 while current_block != None:
-    #print('processing {} ...'.format(current_block.text))
+    print('processing {} ...'.format(current_block.text))
 
     if tg.similar(current_block.text, 'b_tab') > 0.7:
         nesting_block_list.pop()
@@ -282,6 +288,7 @@ while current_block != None:
     next_block = tg.get_block_attached_to(current_block)
     
     if next_block != None : 
+        print('> added node {} to {}'.format(current_block.text, previous_node))
         previous_node = Node(current_block.text, parent=previous_node)
         parent_node = previous_node
 
@@ -300,12 +307,14 @@ while current_block != None:
         list_str = ''
         for block in attached_to_block_list:
             list_str += str(block.text) + '| '
+            print('> added node {} to {}'.format(block.text, previous_node))
             previous_node = Node(block.text, parent=previous_node)
+            
         block_has_attached = False
         current_block = parent_block    # using the parent_block variable 
                                         # to continue searching
         previous_node = parent_node     # reset tree node to parent node
-        #print('{} has {} attached'.format(parent_block.text, list_str))
+        print('{} has {} attached'.format(parent_block.text, list_str))
     
     # Case 2
     next_block = tg.get_block_indented_to(current_block)
@@ -317,24 +326,27 @@ while current_block != None:
         # next block (based on how a human would read the program top to down
         # left to right) because the block in sorted_list are placed in that
         # order
-        #print('{} has {} indented'.format(current_block.text, next_block.text))
+        print('{} has {} indented'.format(current_block.text, next_block.text))
 
     # Case 3
     next_block = tg.get_block_underneath(current_block)
     if next_block != None:
-        #print('{} has {} underneath'.format(current_block.text, next_block.text))
+        print('{} has {} underneath'.format(current_block.text, next_block.text))
         if len(nesting_node_list) == 0:
             previous_node = Node(next_block.text, parent=root)
+            print('> added node {} to {}'.format(next_block.text, root))
         else:
             previous_node = Node(next_block.text, parent=nesting_node_list[-1])
+            print('> added node {} to {}'.format(next_block.text, nesting_node_list[-1]))
 
+        
     
     current_block = get_next_block()
     if len(nesting_block_list) > 0:
         nesting_level = nesting_block_list[-1]
-        #print('LEVEL {}'.format(nesting_level.text))
+        print('LEVEL {}'.format(nesting_level.text))
 
-    #print()
+    print()
 
 
 print('Printing AST...')   
