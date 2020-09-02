@@ -62,7 +62,7 @@ def find_block(text):
             return block
 
 
-def get_node_underneath(my_block):
+def get_block_underneath(my_block):
     thr = 30
     res_block =  None
     for block in block_list:
@@ -82,7 +82,8 @@ def get_node_underneath(my_block):
 
 # get_attached_to: returns the attached block to my_block if there is one
 # else None.
-def get_attached_node_to(my_block):
+# TODO: function name change (?)
+def get_block_attached_to(my_block):
     thr = 30
     res_block = None
     for block in block_list:
@@ -101,7 +102,7 @@ def get_attached_node_to(my_block):
 
 # get_indented_to: returns the indented block to my_block if there is one
 # else None.
-def get_indented_node_to(my_block):
+def get_block_indented_to(my_block):
     res_block =  None
     thr = 10
     for block in block_list:
@@ -130,14 +131,6 @@ def similar_to_exp_text(text):
             # print('{} mached with {}'.format(text, line))
             return line
     return text
-
-
-def is_control_block(text):
-    for block_text in CONTROL_BLOCKS:
-        if similar(text, block_text) > 0.65:
-            # print('{} mached with {}'.format(text, line))
-            return True
-    return False
 
 
 def print_AST(root):
@@ -206,8 +199,8 @@ def find_points(image):
     gray = cv.GaussianBlur(gray, (3, 3), 0)
     edged = cv.Canny(gray, 75, 200)
     screen_contours = []
-    plt.imshow(edged)
-    plt.show()
+    #plt.imshow(edged)
+    #plt.show()
     cnts = cv.findContours(edged.copy(), cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE)
     cnts = imutils.grab_contours(cnts)
     cnts = sorted(cnts, key = cv.contourArea, reverse = True)[:5]
