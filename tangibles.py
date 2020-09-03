@@ -118,7 +118,7 @@ th_saturation = cv.erode(th_saturation,kernel,iterations = EROSION_ITERATIONS)
 num_labels, labels_im = cv.connectedComponents(th_saturation)
 
 # Used for filtering components
-low_filter = .0002*np.prod(image.shape) 
+low_filter = .0005*np.prod(image.shape) 
 
 # Plotting general debug images
 if args['debug']:
@@ -133,7 +133,7 @@ if args['debug']:
     plt.imshow(th_saturation)
     plt.show()
 
-
+counter = 0
 print('Collecting block information')
 for num in range(1, num_labels):
 
@@ -141,8 +141,8 @@ for num in range(1, num_labels):
     label = labels_im == num
     block_mask = np.copy(th_saturation)
     block_mask[label == False] = 0
-    block_mask[label == True] = 255
-
+    block_mask[label == True] = 255 
+    
     # Find coordinates (x, y) and hight - width of the block (h, w) based on 
     # the blocks mask
     contours, _ = cv.findContours(block_mask, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
@@ -151,6 +151,9 @@ for num in range(1, num_labels):
      # Filtering features
     if cv.countNonZero(block_mask) < low_filter:
         continue
+    
+    #plt.imshow(block_mask)
+    #plt.show()
 
     block_mask = cv.dilate(block_mask, mask_dilation,iterations = 3)
 
@@ -162,16 +165,17 @@ for num in range(1, num_labels):
 
     sorted_blocks = sorted(tg.block_list, key=lambda block: block.coord_sum)
 
+    counter +=1 
     #for block in sorted_blocks:
     #    plt.title('{}:{}'.format(block.b_id, block.coord_sum))
     #    plt.imshow(block.feature)
     #    plt.show()
 
-counter = 0
+
 height_sum = 0
 for block in sorted_blocks:
     height_sum += block.height
-    counter +=1 
+    
 
 mean_height = height_sum/counter
 
@@ -179,7 +183,7 @@ mean_height = height_sum/counter
 # 3. Preparing text for OCR #
 #############################
 
-print('Found {} blocks in image'.format(counter))
+print('Found {} blocks in image'.format(counter)) # TODO: change counter
 # Kernels that will be used in erosion-dilation morphological transformations
 erosion_kernel = cv.getStructuringElement(cv.MORPH_RECT, (5,5))
 dilation_kernel = cv.getStructuringElement(cv.MORPH_RECT, (2,2))
@@ -189,17 +193,18 @@ for block in sorted_blocks:
     # Using a temporary cropping solution to crop control blocks 
     # TODO: find a better way to crop all blocks 
     # (maybe use image_to_data() from Tesseract)
-    
+   
     crop_v = 18
     crop_right = int(.08*block.width)
-    if block.height > mean_height: # TODO: unreliable
-        crop_h = int(.5*block.height)
+    if block.height > mean_height or block.height > 150: # TODO: unreliable
+        crop_h = int(.58*block.height)
         feature = block.feature[block.y+crop_v: block.y+block.height-crop_h, 
                                 block.x+crop_v: block.x+block.width-crop_right]
     else:
         feature = block.feature[block.y+crop_v:block.y+block.height-crop_v, 
                                 block.x+crop_v: block.x+block.width-crop_right]
     
+    if feature.size == 0: continue
     # Upscale feature image
     multiplier = 2
     feature = cv.resize(feature, dsize=(feature.shape[1]*multiplier, \
@@ -207,7 +212,6 @@ for block in sorted_blocks:
 
     # blurring to make bin more accurate
     feature = cv.GaussianBlur(feature,(5,5),0)
-
 
     if args['debug']:
         plt.imshow(feature, cmap='gray')
@@ -233,7 +237,7 @@ for block in sorted_blocks:
     # Remove spaces and newlines
     text_in_block = ' '.join(tesseract_output.split())
     # Match text to expected text
-    if not (tg.similar(text_in_block, 'Variable') > 0.8):
+    if not (tg.similar(text_in_block, 'Variable') > 0.8): 
         text_in_block = tg.similar_to_exp_text(text_in_block)
         block.set_text(text_in_block)
     else:
@@ -262,6 +266,7 @@ nesting_node_list = []
 LIST_INDEX = 0
 
 handling_control_block = False
+
 # add node based on nesting level
 def add_node_on_nest_lvl(block):
     if len(nesting_node_list) == 0:
@@ -289,6 +294,10 @@ handle_control_indented = False
 if_do_ind_block = None
 while current_block != None:
     #print('processing {} ... \t\t LEVEL {}'.format(current_block.text,  len(nesting_node_list)))
+
+    if tg.similar(current_block.text, 'unprocessed') > 0.7:
+        current_block = get_next_block()
+        continue
 
     if tg.similar(current_block.text, 'b_tab') > 0.7:
         nesting_node_list.pop()
