@@ -61,6 +61,15 @@ def find_block(text):
         if block.text == text:
             return block
 
+def is_control_block(block_text):
+    # TODO: it is probably better to recognize
+    # control blocks in a pre-processing color
+    # masking step.
+    for text in CONTROL_BLOCKS:
+        if similar(block_text, text) > 0.7:
+            return True
+    return False
+
 
 def get_block_underneath(my_block):
     thr = 30

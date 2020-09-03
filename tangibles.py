@@ -252,10 +252,27 @@ for block in sorted_blocks:
 
 # Base anytree library node, used to connect all nodes of the tangible program
 root = Node('tangible program')
-start = Node(sorted_blocks[0].text, parent=root)
-previous_node = start
+previous_node = root
+
+block_has_attached = False
+nesting_block_list = [] # Code blocks that are before each 
+                        # nested coding block set.
+nesting_node_list = []
 
 LIST_INDEX = 0
+
+handling_control_block = False
+# add node based on nesting level
+def add_node_on_nest_lvl(block):
+    if len(nesting_node_list) == 0:
+        #print('> added node {} to {}'.format(current_block.text, root))
+        previous_node = Node(block.text, parent=root)
+    else:
+        #print('> added node {} to {}'.format(current_block.text, nesting_node_list[-1]))
+        previous_node = Node(block.text, parent=nesting_node_list[-1])
+
+    return previous_node
+
 def get_next_block():
     # Simple function to improve redability below
     # returns the next block in sorted_block list.
@@ -266,88 +283,89 @@ def get_next_block():
     LIST_INDEX += 1
     return ret
 
-# block = tg.find_block('Define')
-# target = tg.find_block('Variable X')
-# print(target)
-# print(tg.get_block_indented_to(block))
-# print()
-block_has_attached = False
+
 current_block = get_next_block()
-nesting_block_list = [] # Code blocks that are before each 
-                        # nested coding block set.
-nesting_node_list = []
+handle_control_indented = False
+if_do_ind_block = None
 while current_block != None:
-    print('processing {} ...'.format(current_block.text))
+    #print('processing {} ... \t\t LEVEL {}'.format(current_block.text,  len(nesting_node_list)))
 
     if tg.similar(current_block.text, 'b_tab') > 0.7:
-        nesting_block_list.pop()
         nesting_node_list.pop()
+        #print('> nesting changed to LEVEL {}'.format(len(nesting_node_list)))
+        current_block = get_next_block()
+        continue
         
     # Case 1 : Blocks attached to the right of current_block.
     attached_to_block_list = []
     next_block = tg.get_block_attached_to(current_block)
-    
     if next_block != None : 
-        print('> added node {} to {}'.format(current_block.text, previous_node))
-        previous_node = Node(current_block.text, parent=previous_node)
+        previous_node = add_node_on_nest_lvl(current_block)
+
+        # Keeping parent information 
         parent_node = previous_node
+        parent_block = current_block    # So that we can return to parent_block
+                                        # once we found all the attached blocks.
+    
+        #print('>>>> NEXT_BLOCK: {}'.format(next_block.text))
+        # Iterate through attached blocks.
+        while next_block != None:
+            block_has_attached = True
+            #print('>>>> append: {}'.format(next_block.text))
+            attached_to_block_list.append(next_block)
+            current_block = get_next_block()
+            next_block = tg.get_block_attached_to(current_block)
 
-    parent_block = current_block  # So that we can return to current_block
-                                    # once we found all the attached blocks.
+        #print('>>>> ATTACHED: {}'.format(block_has_attached))
+        # Printing results.
+        if block_has_attached:
+            list_str = ''
+            for block in attached_to_block_list:
+                list_str += str(block.text) + '| '
+                #print('> added node {} to {}'.format(block.text, previous_node))
+                previous_node = Node(block.text, parent=previous_node)
+                
+            block_has_attached = False
+            current_block = parent_block    # using the parent_block variable 
+                                            # to continue searching
+            previous_node = parent_node     # reset tree node to parent node
+            #print('CASE 1: {} has {} attached'.format(parent_block.text, list_str))
+            current_block = get_next_block()
 
-    # Iterate through attached blocks.
-    while next_block != None:
-        block_has_attached = True
-        attached_to_block_list.append(next_block)
-        current_block = get_next_block()
-        next_block = tg.get_block_attached_to(current_block)
-
-    # Printing results.
-    if block_has_attached:
-        list_str = ''
-        for block in attached_to_block_list:
-            list_str += str(block.text) + '| '
-            print('> added node {} to {}'.format(block.text, previous_node))
-            previous_node = Node(block.text, parent=previous_node)
-            
-        block_has_attached = False
-        current_block = parent_block    # using the parent_block variable 
-                                        # to continue searching
-        previous_node = parent_node     # reset tree node to parent node
-        print('{} has {} attached'.format(parent_block.text, list_str))
+            if tg.is_control_block(parent_block.text):      # if do
+                if_do_ind_block = tg.get_block_indented_to(parent_block)
+                if current_block.b_id == if_do_ind_block.b_id:
+                    #print('NAI RE EINAI '+ str(nesting_node_list))
+                    nesting_node_list.append(parent_node)
+                    handle_control_indented = True
+                    continue
+            else:
+                continue
     
     # Case 2
     next_block = tg.get_block_indented_to(current_block)
     if next_block != None:
-        nesting_block_list.append(next_block)
-        nesting_node_list.append(previous_node)
-        #nesting_node_list.append()
-        # this means the block that i got from the function is actually the
-        # next block (based on how a human would read the program top to down
-        # left to right) because the block in sorted_list are placed in that
-        # order
-        print('{} has {} indented'.format(current_block.text, next_block.text))
+        #print('CASE 2: {} has {} indented'.format(current_block.text, next_block.text))
+
+        # add current block to tree (current indentation lvl)
+        previous_node = add_node_on_nest_lvl(current_block)
+        # append the current node to the indentation list
+        #print('>>>> ADD TO NESTING {}'.format(previous_node))
+        nesting_node_list.append(previous_node) 
+        # print the change
+        #print('> nesting changed to LEVEL {}'.format(len(nesting_node_list)))
+
+        current_block = get_next_block() #this is the actual indented node
+        handling_control_block = False
+        continue
 
     # Case 3
     next_block = tg.get_block_underneath(current_block)
     if next_block != None:
-        print('{} has {} underneath'.format(current_block.text, next_block.text))
-        if len(nesting_node_list) == 0:
-            previous_node = Node(next_block.text, parent=root)
-            print('> added node {} to {}'.format(next_block.text, root))
-        else:
-            previous_node = Node(next_block.text, parent=nesting_node_list[-1])
-            print('> added node {} to {}'.format(next_block.text, nesting_node_list[-1]))
-
-        
+        #print('CASE 3: {} has {} underneath'.format(current_block.text, next_block.text))
+        previous_node = add_node_on_nest_lvl(current_block)
+        current_block = get_next_block()
+        continue
     
-    current_block = get_next_block()
-    if len(nesting_block_list) > 0:
-        nesting_level = nesting_block_list[-1]
-        print('LEVEL {}'.format(nesting_level.text))
-
-    print()
-
-
 print('Printing AST...')   
 tg.print_AST(root)
