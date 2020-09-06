@@ -45,7 +45,7 @@ def coordinates(event, x, y, flags, param):
     global selection_counter, screenCnt
     
     if event == cv.EVENT_LBUTTONDOWN and selection_counter < 4:
-        cv.circle(image, (x,y), 20, (255,200,0), -1)
+        cv.circle(image, (x,y), 5, (255,200,0), -1)
         # print(x, y)
         manual_selection.append([[x, y]])
         selection_counter += 1
@@ -93,6 +93,7 @@ ret3, th_saturation = cv.threshold(s, 0, 255,\
      cv.THRESH_BINARY+cv.THRESH_OTSU)
 
 # Dilating thresholded image to remove letters
+# TODO: dilate only per block mask (?) this may also dilate noise
 DILATION_WINDOW_SIZE = 3
 DILATION_ITERATIONS = 5
 EROSION_WINDOW_SIZE = 3
@@ -133,7 +134,7 @@ if args['pre']:
 # Original image to grayscale
 gray_A = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
 
-# Used for filtering components
+# Used for filtering components base on a persentage of the images size
 low_filter = .0005*np.prod(image.shape) 
 
 # Dilation to remove letters from masks.
@@ -151,16 +152,16 @@ for num in range(1, num_labels):
     block_mask[label == False] = 0
     block_mask[label == True] = 255 
     
+    # Filtering features.
+    if cv.countNonZero(block_mask) < low_filter:
+        continue
+    
     # Find coordinates (x, y) and hight - width of the block (h, w) 
     # based on the blocks mask
     contours, _ = cv.findContours(block_mask, cv.RETR_TREE, \
         cv.CHAIN_APPROX_SIMPLE)
     x,y,w,h = cv.boundingRect(contours[0])
 
-     # Filtering features.
-    if cv.countNonZero(block_mask) < low_filter:
-        continue
-    
     # This is the second time this is applied, this time in each 
     # individual mask.
     block_mask = cv.dilate(block_mask, mask_dilation,iterations = 3)
@@ -246,6 +247,8 @@ for block in sorted_blocks:
 
     # Match text to expected text.
     if not (tg.similar(text_in_block, 'Variable') > 0.8): 
+        # Don't compare variable as it is likely to be matched with
+        # the wrong text.
         text_in_block = tg.similar_to_exp_text(text_in_block)
         block.set_text(text_in_block)
     else:
