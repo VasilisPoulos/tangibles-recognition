@@ -98,8 +98,8 @@ In the binarized image we apply dilation and then erosion morphological
 transformations to get rid of any noise (e.g in
 the second picture in the image above there are 14 'blocks' detected, see: 
 [hsv.ipynb](https://github.com/VasilisPoulos/tangibles-recognition/blob/master/experimentation%20notebooks/hsv.ipynb)) and
-close the letter's gaps. The binary image
-contains only black blocks on the exact same location of the
+close the letter's gaps. 
+The binary image contains only black blocks on the exact same location of the
 original image. Then using the connected components
 method we can label every one of these features and later use
 them as a mask for each block.
