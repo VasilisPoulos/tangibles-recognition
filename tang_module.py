@@ -5,6 +5,10 @@ import cv2 as cv
 import imutils
 import matplotlib.pyplot as plt 
 
+######################################
+# Code block realted functions-class #
+######################################
+
 EXPECTED_TEXT = ['Start', 
                  'Define',
                  'Variable X',
@@ -41,7 +45,8 @@ class code_block:
         self.feature = img
 
     def __str__(self):
-        return '{self.b_id}, "{self.text}" at ({self.x}, {self.y}) {self.coord_sum}'.format(self = self)
+        return '{self.b_id}, "{self.text}" at\
+             ({self.x}, {self.y}) {self.coord_sum}'.format(self = self)
 
     def set_text(self, text):
         self.text = text
@@ -70,85 +75,98 @@ def is_control_block(block_text):
             return True
     return False
 
+#################
+# AST functions #
+#################
 
 def get_block_underneath(my_block):
+    # returns the block underneath to my_block if there is one 
+    # else None.
+
     thr = 30
     res_block =  None
     for block in block_list:
-        # Skip the same block as my_block in the block_list or blocks that are 
-        # higher in the picture than my_block.
+        # Skip the same block as my_block in the block_list or blocks 
+        # that are higher in the picture than my_block.
         if block.b_id == my_block.b_id or block.y < my_block.y: 
             # print('Skipped {}'.format(block.text))
             continue
         # Searching for a block that: 
-        # * is `not` more to the right or left than my block in the x axis 
-        #   + threshold
+        # * is `not` more to the right or left than my block in the 
+        #   x axis + threshold
         # * is `not` lower that my_block's height + threshold
-        if  my_block.x - thr < block.x < my_block.x + thr and             block.y < my_block.y + my_block.height + thr:
+        if  my_block.x - thr < block.x < my_block.x + thr and \
+            block.y < my_block.y + my_block.height + thr:
             res_block = block
     return res_block 
 
 
-# get_attached_to: returns the attached block to my_block if there is one
-# else None.
-# TODO: function name change (?)
 def get_block_attached_to(my_block):
+    # returns the attached block to my_block if there is one else None.
+
     thr = 30
     res_block = None
     for block in block_list:
-        # Skip the same block as my_block in the block_list or blocks that are 
-        # more to the left of the picture than my_block.
+        # Skip the same block as my_block in the block_list or blocks
+        # that are more to the left of the picture than my_block.
         if block.b_id == my_block.b_id or block.x < my_block.x:      
             # print('Skipped {}'.format(block.text))
             continue 
         # Searching for a block that: 
-        # * is `not` higher or lower than my block in the y axis + threshold
-        # * is `not` more to the right that my_block's width + threshold
-        if  my_block.y - thr < block.y < my_block.y + thr and block.x < my_block.x + my_block.width + thr :
+        # * is `not` higher or lower than my block in the y axis + 
+        #   threshold
+        #
+        # * is `not` more to the right that my_block's width 
+        # + threshold
+        if  my_block.y - thr < block.y < my_block.y + thr and \
+            block.x < my_block.x + my_block.width + thr :
             res_block = block
     return res_block 
 
 
-# get_indented_to: returns the indented block to my_block if there is one
-# else None.
 def get_block_indented_to(my_block):
+    # returns the indented block to my_block if there is one else None.
+
     res_block =  None
     thr = 50 # TODO: change to a non constant value
     for block in block_list:
-        # Skip the same block as my_block in the block_list or blocks that are 
-        # higher than my_block.
+        # Skip the same block as my_block in the block_list or blocks 
+        # that are higher than my_block.
         if block.b_id == my_block.b_id or block.y < my_block.y: 
-            #print('Skipped {}'.format(block.text))
             continue
         # Searching for a block that: 
         # * is within the range of my_block's width + threshold
         # * is below my_block
-        if  my_block.x < block.x < my_block.x + my_block.width and  block.y < my_block.y + my_block.height + thr:
-            
+        if  my_block.x < block.x < my_block.x + my_block.width and \
+            block.y < my_block.y + my_block.height + thr:
             res_block = block
             return res_block
 
 
-# similar(): 
-# returns: a precentage of string a, b similarity
 def similar(a, b):
+    # returns: a precentage of string a, b similarity
+    #
+    # Uses the Ratcliff/Obershelp algorithm that computes the 
+    # similarity of two strings as the number of matching characters
+    # divided by the total number of characters in the two strings.
     return SequenceMatcher(None, a, b).ratio()
 
 
 def similar_to_exp_text(text):
     for line in EXPECTED_TEXT:
         if similar(text, line) > 0.65:
-            # print('{} mached with {}'.format(text, line))
             return line
     return text
 
 
 def print_AST(root):
-    # Print resulting AST
     for pre, _, node in RenderTree(root):
         print("%s%s" % (pre, node.name))
 
-# Perspective transform functions @pyimagesearch.com
+######################################################
+# Perspective transform functions @pyimagesearch.com #
+######################################################
+
 def order_points(pts):
     # initialzie a list of coordinates that will be ordered
     # such that the first entry in the list is the top-left,
@@ -223,6 +241,10 @@ def find_points(image):
 
     return screen_contours
 
+#############################
+# Image processing function #
+#############################
+
 def white_balance(img):
     result = cv.cvtColor(img, cv.COLOR_BGR2LAB)
     avg_a = np.average(result[:, :, 1])
@@ -231,5 +253,3 @@ def white_balance(img):
     result[:, :, 2] = result[:, :, 2] - ((avg_b - 128) * (result[:, :, 0] / 255.0) * 1.1)
     result = cv.cvtColor(result, cv.COLOR_LAB2BGR)
     return result
-
-
