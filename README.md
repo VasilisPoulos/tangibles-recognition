@@ -49,10 +49,17 @@ The script prints the correct AST in the terminal for all the images in the
 `test_images` folder. Image `program2.jpg` requires the user to select the
 correct edges of the paper.
 
-to see all the arguments of the script use:
+use `-o, -d` arguments to display debug plots:
 
 ```shell
-python tangibles.py -h
+usage: tangibles.py [-h] -i IMAGE [-p] [-o]
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -i IMAGE, --image IMAGE
+                        path to tangible program image
+  -p, --pre             preprocessing and masks generation debug plots
+  -o, --ocr             ocr debug plots
 ```
 
 ## Example images result explanation
@@ -62,8 +69,8 @@ blocks from the `block set.pdf` that are forming an error free tangible program 
 placed A4 paper that all it's edges are clearly visible.
 
 Each of the examples satisfies the above use case and is processed following the below 5 steps.
-This is an additional explanation to the existing comments of the code to summarize the processing
-procedure.
+This is an additional explanation to the existing comments on the code and aims on summarizing 
+the processing procedure.
 
 ### 1. Preparing the image for pre-processing
 
@@ -74,8 +81,8 @@ saturation contrast between the white paper and the tangible
 blocks, that will help us later with the mask generation, but will
 also align the text horizontally. To make sure this contrast will exist
 in all images we white balance the output of the transformation using
-the LAB color space. (Notebooks: [contrast.ipynb](experimentation\ notebooks/contrast.ipynb),
-[perspective-transformation.ipynb](experimentation\ notebooks/perspective-transformation.ipynb))
+the LAB color space. (Notebooks: [contrast.ipynb](https://github.com/VasilisPoulos/tangibles-recognition/blob/master/experimentation%20notebooks/contrast.ipynb),
+[perspective-transformation.ipynb](https://github.com/VasilisPoulos/tangibles-recognition/blob/master/experimentation%20notebooks/perspective-transformation.ipynb))
 
 ![pre-processing](test_images/readme_images/Figure_1.png)
 
