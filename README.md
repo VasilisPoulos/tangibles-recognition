@@ -82,8 +82,7 @@ blocks, that will help us later with the mask generation, but will
 also align the text horizontally. To make sure this contrast will exist
 in all images we white balance the output of the transformation using
 the LAB color space. (Notebooks: [contrast.ipynb](https://github.com/VasilisPoulos/tangibles-recognition/blob/master/experimentation%20notebooks/contrast.ipynb),
-[perspective-transformation.ipynb](https://github.com/VasilisPoulos/tangibles-recognition/blob/master/experimentation%20notebooks/perspective-
-transformation.ipynb))
+[perspective-transformation.ipynb](https://github.com/VasilisPoulos/tangibles-recognition/blob/master/experimentation%20notebooks/perspective-transformation.ipynb))
 
 ![pre-processing](test_images/readme_images/Figure_1.png)
 
