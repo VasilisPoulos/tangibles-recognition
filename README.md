@@ -10,7 +10,7 @@ My approach for the recognition of the blocks is shown in the
 `complex_example.ipynb` notebook. The python script is in the early
 stages of its implementation but can succesfully process 2 example
 images.
-For more info go to my [gist](https://gist.github.com/VasilisPoulos/5176e80d0f8f4948e0549a58497d3b54).
+GSoC final deliverable: [gist](https://gist.github.com/VasilisPoulos/5176e80d0f8f4948e0549a58497d3b54).
 
 ## How to run
 
