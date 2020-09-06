@@ -97,7 +97,7 @@ saturation chanel.
 In the binarized image we apply dilation and then erosion morphological
 transformations to get rid of any noise (e.g in
 the second picture in the image above there are 14 'blocks' detected, see: 
-[hsv.ipynb](experimentation\ notebooks/hsv.ipynb)) and
+[hsv.ipynb](https://github.com/VasilisPoulos/tangibles-recognition/blob/master/experimentation%20notebooks/hsv.ipynb)) and
 close the letter's gaps. The binary image
 contains only black blocks on the exact same location of the
 original image. Then using the connected components
