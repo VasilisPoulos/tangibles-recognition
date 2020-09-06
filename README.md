@@ -81,8 +81,13 @@ saturation contrast between the white paper and the tangible
 blocks, that will help us later with the mask generation, but will
 also align the text horizontally. To make sure this contrast will exist
 in all images we white balance the output of the transformation using
+<<<<<<< HEAD
 the LAB color space. (Notebooks: [contrast.ipynb](https://github.com/VasilisPoulos/tangibles-recognition/blob/master/experimentation%20notebooks/contrast.ipynb),
 [perspective-transformation.ipynb](https://github.com/VasilisPoulos/tangibles-recognition/blob/master/experimentation%20notebooks/perspective-transformation.ipynb))
+=======
+the LAB color space. (Notebooks: [contrast.ipynb](contrast.ipynb),
+[perspective-transformation.ipynb](experimentation\ notebooks/perspective-transformation.ipynb))
+>>>>>>> 543baf16c5abde5306b97a1f104a52f1995a3a83
 
 ![pre-processing](test_images/readme_images/Figure_1.png)
 
